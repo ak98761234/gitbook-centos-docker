@@ -3,34 +3,22 @@ node {
     try {
         notifyBuild('STARTED')
 
-        def templateName = 'gitbook-centos-docker'
+        stage('Prepare code') {
+            echo 'do checkout stuff'
+        }
 
-        openshift.withCluster() {
-            openshift.withProject() {
+        stage('Testing') {
+            echo 'Testing'
+            echo 'Testing - publish coverage results'
+        }
 
-                stage('build') {
-                    def builds = openshift.startBuild("${templateName}")
-                    timeout(5) {
-                      builds.untilEach(1) {
-                        return it.object().status.phase == "Complete"
-                      }
-                      builds.logs('-f')
-                    }
-                }
+        stage('Staging') {
+            echo 'Deploy Stage'
+        }
 
-                stage('deploy') {
-                    def deployment = openshift.selector('deployment', "${templateName}")
-                    deployment.rollout().status()
-                }
-
-                stage('ask for promotion') {
-                    input id: 'Approve01', message: 'Wanna push to prod?????', ok: 'HANG TIGHT!'
-                }
-
-                stage('tag and promote') {
-                    openshift.tag("${templateName}:latest", "${templateName}:prod")
-                }
-            }
+        stage('Deploy') {
+            echo 'Deploy - Backend'
+            echo 'Deploy - Frontend'
         }
 
   } catch (e) {
@@ -40,5 +28,28 @@ node {
   } finally {
     // Success or failure, always send notifications
     notifyBuild(currentBuild.result)
+  }
+}
+
+def notifyBuild(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
   }
 }
